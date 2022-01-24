@@ -1,0 +1,45 @@
+const fs = require('fs');
+const fsp = require('fs').promises;
+const path = require('path');
+
+//사진이 들어있는 폴더 이름을 str로 받음
+const oldname = process.argv[2];
+
+//조건을 만족하는 element들의 경로를 새로운 폴더 속으로 바꿔줌
+function moveFile(oldname,newname,element) {
+    //상위경로와의 연결은 path.join으로 해결
+    fsp.rename(path.join(oldname,element),path.join(oldname,newname,element))
+    //경로 변경 후 바로 console에 변경사항 출력 (비동기여도 순서가 중요하지 않으므로 바로 출력)
+    .then(() => console.log('move '+element+' to '+newname))
+    .catch(console.error);
+}
+
+//제일먼저 폴더가 만들어져야하므로 동기적으로 폴더 먼저 생성
+try{
+    fs.mkdirSync(path.join(oldname,'video'));
+    fs.mkdirSync(path.join(oldname,'duplicated'));
+    fs.mkdirSync(path.join(oldname,'captured'));
+} catch (error) {
+    console.error(error);
+}
+//해당폴더 안의 내용을 불러와서 하나씩 조건에 맞는지 점검
+fsp.readdir(oldname)
+.then(data => {
+    data.forEach(element => {
+        //확장자 점검
+        let ext = path.extname(element);
+        if (ext === '.mp4' || ext === '.mov') {
+            moveFile(oldname,'video',element)
+        }
+        else if (ext === '.aae' || ext === '.png') {
+            moveFile(oldname,'captured',element)
+        }
+        else if (element.includes('E')){
+            //E가 있는 파일의 원본을 옮겨야 하므로 E를 기준으로 split하고 E가 포함안된 뒤 부분과 'IMG_' 를 합침
+            // EX) 'IMG_E1234' => saveFile=['IMG_E','1234'] => 'IMG_'+saveFile[1]='IMG_1234' 
+            let saveFile = element.split('E')
+            moveFile(oldname,'duplicated',('IMG_'+saveFile[1]))
+        }
+    });
+} )
+.catch(console.error);
